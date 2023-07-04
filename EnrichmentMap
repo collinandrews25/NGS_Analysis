@@ -1,0 +1,48 @@
+# PURPOSE: Use counts data to create enrichment map to visualize enzymatic specificity
+
+
+# ====================================== User Inputs ======================================
+
+# INPUT 1: File Location Information
+inFilePath = '/Users/PickMe/Documents/NGS/Mpro/ExtractedData/' # Define file pathway
+inInitalSortFileNames = ['Mpro1_I_S1_L001', 'Mpro1_I_S1_L002',
+                         'Mpro1_I_S1_L003', 'Mpro1_I_S1_L004'] # Define file name(s)
+inFinalSortFileNames = ['Mpro1_R4_S3_L001', 'Mpro1_R4_S3_L002',
+                        'Mpro1_R4_S3_L003', 'Mpro1_R4_S3_L004'] # Define file name(s)
+
+
+
+# INPUT 2: Substrate parameters
+inSubstrateLength = 8  # Define the length of the substrate
+
+
+inEnrichmentColorMap = ['navy', 'royalblue', 'dodgerblue', 'dodgerblue', 'lightskyblue',
+                        'white','tomato', 'red', 'red', 'firebrick', 'darkred']
+
+
+# ================================== Setup Residue List ==================================
+
+# Set up the structure containing the residues in a tuple
+residues = (('Alanine', 'A'), ('Arginine', 'R'), ('Asparagine', 'N'), \
+            ('Aspartic Acid', 'D'), ('Cysteine', 'C'), ('Glutamic Acid', 'E'), \
+            ('Glutamine', 'Q'), ('Glycine', 'G'), ('Histidine', 'H'), \
+            ('Isoleucine', 'I'), ('Leucine', 'L'), ('Lysine', 'K'), ('Methionine', 'M'), \
+            ('Phenylalanine', 'F'), ('Proline', 'P'), ('Serine', 'S'), ('Threonine', 'T'), \
+            ('Tryptophan', 'W'), ('Tyrosine', 'Y'), ('Valine', 'V'))
+
+
+# =================================== Define Functions ===================================
+
+def getCounts(initialSort, finalSort):
+    for file in initialSort:
+        firstFile = 1
+        with open(inFilePath + file, 'r') as openedFile:  # Open file
+            if firstFile == 1:
+                count = openedFile
+                print('Count:')
+                print(count)
+
+
+# ===================================== RUN THE CODE =====================================
+
+counts = getCounts(inInitalSortFileNames, inFinalSortFileNames)
