@@ -1,0 +1,496 @@
+# PURPOSE: This script contains the functions that you will need to process your NGS data
+
+
+import os
+import sys
+import warnings
+import numpy as np
+import pickle as pk
+import pandas as pd
+import seaborn as sns
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio import BiopythonWarning
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+
+
+# ====================================== Setup Residue List ======================================
+defaultResidues = (('Alanine', 'Ala', 'A'), ('Arginine', 'Arg', 'R'), ('Asparagine', 'Asn', 'N'),
+                   ('Aspartic Acid', 'Asp', 'D'), ('Cysteine', 'Cys', 'C'),
+                   ('Glutamic Acid', 'Glu', 'E'), ('Glutamine', 'Gln', 'Q'),
+                   ('Glycine', 'Gly', 'G'), ('Histidine', 'His ', 'H'),
+                   ('Isoleucine', 'Ile', 'I'), ('Leucine', 'Leu', 'L'), ('Lysine', 'Lys', 'K'),
+                   ('Methionine', 'Met', 'M'), ('Phenylalanine', 'Phe', 'F'),
+                   ('Proline', 'Pro', 'P'), ('Serine', 'Ser', 'S'), ('Threonine', 'Thr', 'T'),
+                   ('Tryptophan', 'Typ', 'W'), ('Tyrosine', 'Tyr', 'Y'), ('Valine', 'Val', 'V'))
+
+
+# ======================================= Define Functions =======================================
+class NGS:
+    def __init__(self, substrateLength, xAxisLabels, residueLabelType, titleLabelSize,
+                   axisLabelSize, AA, printNumber):
+        self.substrateLength = substrateLength # Define the length of your substrate
+        self.xAxisLabels = xAxisLabels
+        self.residueLabelType = residueLabelType
+        self.titleSize = titleLabelSize
+        self.axisLabelSize = axisLabelSize
+        if printNumber == None:
+            self.printNumber = 0
+        else:
+            self.printNumber = printNumber # Define number of translated seq to print
+        if AA == None:
+            self.residues = defaultResidues
+        else:
+            self.residues = AA
+
+        # Prevent data from printing in scientific notation
+        np.set_printoptions(suppress=True)
+            
+    def loadAndTranslate(self, filePath, fileName, fileType, startSeq, endSeq):
+        # Define file location
+        fileLocation = filePath + '\\' + fileName + '.' + fileType
+
+        # Determine read direction
+        if '_R1_' in fileName:
+            # Extract the substrates
+            subSequence = NGS.translate(self, path=fileLocation, type=fileType,
+                                        startSeq=startSeq, endSeq=endSeq)
+        elif '_R2_' in fileName:
+            # Extract the substrates
+            subSequence = NGS.reverseTranslate(self, path=fileLocation, type=fileType,
+                                               startSeq=startSeq, endSeq=endSeq)
+        return subSequence
+
+
+    def loadSubstrates(self, datasetName, filePath, files, printLoadedData, printNumber):
+        print('================================ Loading Substrate Files ========================='
+              '=======')
+        substrates = []
+        substrateTotal = 0
+
+        # Load counted substrate data
+        print(f'Load Files: {" ".join(files)}')
+
+        for file in files:
+            fileLocation = f'{filePath}\\substrates_{file}'
+            print(f'File path: {fileLocation}')
+
+            with open(fileLocation, 'rb') as openedFile:  # Open file
+                # Access the data
+                data = pk.load(openedFile)
+
+                substrates.extend(data)
+                substrateTotal += len(data)
+
+                if printLoadedData == 1:
+                    print(f'Loaded substrates from file: {file}')
+                    for idx in range(printNumber):
+                        print(f'    {data[idx]}')
+                    print('')
+        print(f'Total number of substrates in {datasetName}: {substrateTotal}')
+        print('')
+        print('')
+        return substrates, substrateTotal
+
+
+    def loadCounts(self, datasetName, filePath, files, printLoadedData):
+        print('================================= Loading Counted Files =========================='
+              '=======')
+        fileIndex = 0
+        countedData = []
+        countedTotals = []
+        totalSubstrateCount = 0
+
+        # Load counted substrate data
+        print(f'Load Files: {" ".join(files)}')
+        print('')
+        for file in files:
+            fileLocation = f'{filePath}\\counts_{file}'
+            print(f'File path: {fileLocation}')
+
+            with open(fileLocation, 'rb') as openedFile:  # Open file
+
+                if fileIndex == 0:
+
+                    # Access the data
+                    data = pk.load(openedFile)
+
+                    if printLoadedData == 1:
+                        print('Loaded Data:')
+                        print(data)
+
+
+                    substrateCounts = np.sum(data, axis=0)
+                    countedTotals.append(substrateCounts[0])
+
+                    countedData = data
+
+                    print(f'    Number of substrates in {file}: {substrateCounts[fileIndex]}')
+                    print('')
+
+                    fileIndex += 1
+                else:
+                    # Access the data
+                    data = pk.load(openedFile)
+
+                    if printLoadedData == 1:
+                        print('Loaded Data:')
+                        print(data)
+
+                    substrateCounts = np.sum(data, axis=0)
+                    countedTotals.append(substrateCounts[0])
+
+                    countedData += data # Add the new counts to the total count
+
+                    print(f'    Number of substrates in {file}: {substrateCounts[fileIndex]}')
+                    print('')
+                    fileIndex += 1
+                totalSubstrateCount = sum(countedTotals)
+        print(f'Counted Data From: {" ".join(files)}')
+        print(countedData)
+
+        # Sanity Check: Do the sums of each column match the total number of substrates?
+        columnSums = np.sum(countedData, axis=0)
+        print(f'    Column Sums: {columnSums}')
+        print(f'    Total number of substrates in {datasetName}: {totalSubstrateCount}')
+        print('')
+        print('')
+        for idx in range(self.substrateLength):
+            if totalSubstrateCount != columnSums[idx]:
+                print(f'ERROR: The total number of substrates ({totalSubstrateCount}) =/= the sum'
+                      f' of column {idx} ({columnSums[idx]})')
+                sys.exit()
+
+        return countedData, totalSubstrateCount
+
+
+    def translate(self, path, type, startSeq, endSeq):
+        print('================================ Translate Forward Read =========================='
+              '======')
+
+        subSequence = []
+
+        # Load the data
+        if not os.path.isfile(path):
+            print(f'ERROR: fileLocation does not lead to a file')
+            print(f'    {path}')
+        else:
+            print(f'File Location: {path}')
+            print('')
+
+
+        with open(path, 'r') as file:  # Open the file
+            data = SeqIO.parse(file, type)
+            extractionIteration = 0
+
+            # Extract the substrates
+            for datapoint in data:  # Iterate over the records
+                dna = str(datapoint.seq)
+
+                AA = Seq.translate(dna)
+
+                if extractionIteration < self.printNumber:
+                    # Filter out sequences containing invalid or stop codons
+
+                        if startSeq and endSeq in AA:
+                            start = AA.find(startSeq) + len(startSeq)  # Find the start index
+                            end = AA.find(endSeq)  # Find the end index
+                            sub = AA[start:end].strip()
+                            if len(sub) == self.substrateLength:
+                                subSequence.extend([sub])  # Record the substrate
+                                # print(f'    Sequence with Substrate: {AA}')
+                                print(f'    Extracted Substrate: {sub}')
+                            extractionIteration += 1
+                else:
+                    # Filter out sequences containing invalid or stop codons
+                    if 'X' and '*' not in AA:
+                        if startSeq in AA and endSeq in AA:
+                            start = AA.find(startSeq) + len(startSeq)  # Find the start index
+                            end = AA.find(endSeq)  # Find the end index
+                            sub = AA[start:end].strip()
+                            if len(sub) == self.substrateLength:
+                                subSequence.extend([sub])  # Record the substrate
+
+
+            # Verify if substrates have been extracted
+            if len(subSequence) == 0:
+                print('')
+                print('No substrates were extracted from file at:', path)
+                print('Recommend: adjust variables startSeq:', startSeq, '& endSeq:',
+                      endSeq)
+                sys.exit()
+            else:
+                print(f'Number of Substrates in R1: {len(subSequence)}')
+                print('')
+                print('')
+            return subSequence
+
+    def reverseTranslate(self, path, type, startSeq, endSeq):
+        print('================================ Translate Reverse Read =========================='
+              '======')
+
+        subSequence = []
+
+        # Load the data
+        if not os.path.isfile(path):
+            print(f'ERROR: fileLocation does not lead to a file')
+            print(f'    {path}')
+        else:
+            print(f'File Location: {path}')
+            print('')
+
+        with open(path, 'r') as file:  # Open the file
+            data = SeqIO.parse(file, type)
+
+            warnings.simplefilter('ignore', BiopythonWarning)
+
+            extractionIteration = 0
+            # Extract the substrates
+            for record in data:  # Iterate over the records
+                dna = str(record.seq)
+                revComplement = Seq(dna).reverse_complement()
+                AA = str(revComplement[1:].translate())  # Seq.translate(revComplement)
+
+                if extractionIteration < self.printNumber:
+                    # Filter out sequences containing invalid or stop codons
+                    if 'X' and '*' not in AA:
+                        print(f'Expressed Sequence: {AA}')
+                        if startSeq and endSeq in AA:
+                            start = AA.find(startSeq) + len(startSeq)  # Find the start index
+                            end = AA.find(endSeq)  # Find the end index
+                            sub = AA[start:end].strip()
+                            if len(sub) == self.substrateLength:
+                                # print(f'    Sequence with Substrate: {AA}')
+                                print(f'    Extracted Substrate: {sub}')
+                                subSequence.extend([sub])  # Record the substrate
+                            extractionIteration += 1
+                else:
+                    # Filter out sequences containing invalid or stop codons
+                    if 'X' and '*' not in AA:
+                        if startSeq in AA and endSeq in AA:
+                            start = AA.find(startSeq) + len(startSeq)  # Find the start index
+                            end = AA.find(endSeq)  # Find the end index
+                            sub = AA[start:end].strip()
+                            if len(sub) == self.substrateLength:
+                                subSequence.extend([sub])  # Record the substrate
+
+            # Verify if substrates have been extracted
+            if len(subSequence) == 0:
+                print('')
+                print('No substrates were extracted from file at:', path)
+                print('Recommend: adjust variables startSeq:', startSeq, '& endSeq:',
+                      endSeq)
+                sys.exit()
+            else:
+                print(f'Number of Substrates in R2: {len(subSequence)}')
+                print('')
+                print('')
+            return subSequence
+
+
+    def countResidues(self, substrates, totalSubs, printCounts, datasetName):
+        # Initialize the counts matrix
+        countedData = np.zeros((len(self.residues), int(self.substrateLength)), dtype=int)
+
+
+        # Count the occurrences of each residue
+        for sub in substrates:
+            # print(f'Substrate: {sub}')
+            for idxAA in range(self.substrateLength):
+                for idxR, residue in enumerate(self.residues):
+                    # print(f'Sub Length: {len(sub)}')
+                    if sub[idxAA] == residue[2]:
+                        countedData[idxR][idxAA] += 1
+
+
+        if printCounts == 1:
+            print('================================= Calculate: AA Counts ======================='
+                  '==========')
+            print(f'Counted data: {datasetName}')
+            print(countedData)
+
+
+        # Sanity Check: Do the sums of each column match the total number of substrates?
+        columnSums = np.sum(countedData, axis=0)
+        print(f'Sums of each column in the counted data: {columnSums}')
+        print(f'Total number of substrates: {totalSubs}')
+        print('')
+        for idx in range(self.substrateLength):
+            if columnSums[idx] != totalSubs:
+                print(f'ERROR: The total number of substrates ({totalSubs}) =/= the sum of column'
+                      f' {idx} ({columnSums[idx]})')
+                sys.exit()
+        print('')
+        return countedData
+
+
+    def fixResidue(self, substrates, fixedAA, fixedPosition):
+        print('======================================== Fix AA =================================='
+              '======')
+        fixedSubs = []
+        fixedSubsTotal = 0
+
+        # Select substrates that contain selected AA at a specified position in the substrate
+        if len(fixedAA) == 1:
+            for sub in substrates:
+                if sub[fixedPosition - 1] == fixedAA:
+                    fixedSubs.append(sub)
+                    fixedSubsTotal += 1
+        else:
+            for sub in substrates:
+                foundResidue = []
+
+                for z, residue in enumerate(fixedAA):
+                    if sub[fixedPosition - 1 + z] != residue:
+                        break
+                    foundResidue.append(residue)
+
+                if len(foundResidue) == len(fixedAA):
+                    fixedSubs.append(sub)
+
+            fixedSubsTotal = len(fixedSubs)
+
+
+        # Ensure you have extracted substrate with fixed AA
+        if fixedSubsTotal == 0:
+            print('')
+            print(f'ERROR: No substrates contained {fixedAA} at {fixedPosition}')
+            sys.exit()
+
+        for idx in range(10):
+            print(f'Extracted Substrates: {fixedSubs[idx]}')
+
+
+        print(f'Number of Substrates with {fixedAA} at R{fixedPosition}: {fixedSubsTotal}')
+        print('')
+        print('')
+        return fixedSubs, fixedSubsTotal
+
+
+    def calculateRF(self, datasetName, counts, numberOfSubs, printRF):
+        # Calculate Relative Frequency of each amino acid at a given position
+        RF = counts / numberOfSubs
+
+        if printRF == 1:
+            print('===================================== Calculate: RF =========================='
+                  '===========')
+            print(f'Relative Frequency: {datasetName}')
+            print(np.round(RF, 4))
+            print('')
+            print('')
+        return RF
+
+
+    def calculateEnrichment(self, initialSort, finalSort):
+        print('============================== Calculate: Enrichment Score ======================='
+              '=======')
+        enrichment = np.log2(finalSort / initialSort)
+
+        print('Enrichment Score:')
+        print(np.round(enrichment, 4))
+        return enrichment
+
+
+    def createCustomColorMap(colorMap):
+        # Create a smooth gradient colormap with the updated colorRange
+        colorList = [(i / (len(colorMap) - 1), color) for i, color in enumerate(colorMap)]
+        cMapCustom = LinearSegmentedColormap.from_list('custom_colormap', colorList)
+        return cMapCustom
+
+
+    def plotCounts(self, fileName, countedData, colors):
+        # Create heatmap
+        cMapCustom = NGS.createCustomColorMap(colors)
+
+        # Convert the counts to a data frame for Seaborn heatmap
+        if self.residueLabelType == 0:
+            data = pd.DataFrame(countedData, columns=self.xAxisLabels,
+                                index=[residue[0] for residue in self.residues])
+        elif self.residueLabelType == 1:
+            data = pd.DataFrame(countedData, columns=self.xAxisLabels,
+                                index=[residue[1] for residue in self.residues])
+        elif self.residueLabelType == 2:
+            data = pd.DataFrame(countedData, columns=self.xAxisLabels,
+                                index=[residue[2] for residue in self.residues])
+
+
+        # Adjust the width of the figure to keep it within bounds
+        figWidth = len(data.columns)
+        figWidth += figWidth / 2  # Dynamically adjust the width of the figure
+
+        # Plot the heatmap with numbers centered inside the squares
+        fig, ax = plt.subplots(figsize=(figWidth, 9))
+        heatmap = sns.heatmap(data, annot=True, fmt='d', cmap=cMapCustom, cbar=True,
+                              linewidths=0.5, linecolor='black', square=False, center=None)
+        ax.set_xlabel('Substrate Position', fontsize=self.axisLabelSize)
+        ax.set_ylabel('Residue', fontsize=self.axisLabelSize)
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+        ax.set_title(f'Residue Counts: {fileName}', fontsize=self.titleSize)
+        for _, spine in ax.spines.items():
+            spine.set_visible(True)
+
+        # Modify the colorbar
+        cbar = heatmap.collections[0].colorbar
+        cbar.outline.set_linewidth(0.5)  # Set the width of the colorbar outline to 1
+        cbar.outline.set_edgecolor('black')  # Set the color of the colorbar outline to black
+
+        plt.show()
+
+
+    def plotEnrichmentScores(self, fileName, scores, colors):
+        # Create heatmap
+        cMapCustom = NGS.createCustomColorMap(colors)
+
+        # Convert the counts to a data frame for Seaborn heatmap
+        if self.residueLabelType == 0:
+            data = pd.DataFrame(scores, columns=self.xAxisLabels,
+                                index=[residue[0] for residue in self.residues])
+        elif self.residueLabelType == 1:
+            data = pd.DataFrame(scores, columns=self.xAxisLabels,
+                                index=[residue[1] for residue in self.residues])
+        elif self.residueLabelType == 2:
+            data = pd.DataFrame(scores, columns=self.xAxisLabels,
+                                index=[residue[2] for residue in self.residues])
+
+
+        # Adjust the width of the figure to keep it within bounds
+        figWidth = len(data.columns)
+        figWidth += figWidth / 2  # Dynamically adjust the width of the figure
+
+        # Find max and min values for the enrichment scores
+        if np.max(scores) >= np.min(scores):
+            cBarMax = np.max(scores)
+            cBarMin = -1 * cBarMax
+        else:
+            cBarMin = np.min(scores)
+            cBarMax = -1 * cBarMin
+
+        # Plot the heatmap with numbers centered inside the squares
+        fig, ax = plt.subplots(figsize=(figWidth, 9))
+        heatmap = sns.heatmap(data, annot=True, fmt='.3f', cmap=cMapCustom, cbar=True,
+                              linewidths=0.5, linecolor='black', square=False, center=None,
+                              vmax=cBarMax, vmin=cBarMin)
+        ax.set_xlabel('Substrate Position', fontsize=self.axisLabelSize)
+        ax.set_ylabel('Residue', fontsize=self.axisLabelSize)
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+        ax.set_title(f'{fileName} Enrichment Scores', fontsize=self.titleSize, fontweight='bold')
+        for _, spine in ax.spines.items():
+            spine.set_visible(True)
+
+        # Set invalid values to grey
+        cmap = plt.cm.get_cmap(cMapCustom)
+        cmap.set_bad(color='lightgrey')
+        # invalid_indices = np.isneginf(scores)
+        # heatmap.get_children()[0].set_cmap(cmap)
+        # heatmap.get_children()[0].set_clim(vmin=cBarMin, vmax=cBarMax)
+        # heatmap.get_children()[0].set_array(
+        #     np.ma.masked_where(invalid_indices, data.values.flatten()))
+
+
+        # Modify the colorbar
+        cbar = heatmap.collections[0].colorbar
+        cbar.outline.set_linewidth(0.5)  # Set the width of the colorbar outline
+        cbar.outline.set_edgecolor('black')  # Set the color of the colorbar outline
+
+        plt.show()
