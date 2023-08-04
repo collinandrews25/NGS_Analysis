@@ -1,0 +1,94 @@
+# PURPOSE: This code will load in your substrate data and extract substrates with selected
+           # residues at a specified position
+
+
+from functionsNGS import NGS
+
+
+# ========================================= User Inputs =========================================
+# INPUT 1: File Location Information
+inFilePath = r'C:\Users\ca34522\Documents\NGS\Mpro\ExtractedData'  # Define file pathway
+inInitialSortFileNames = ['Mpro1_I_S1_L001', 'Mpro1_I_S1_L002',
+                         'Mpro1_I_S1_L003', 'Mpro1_I_S1_L004']  # Define file name(s)
+inFinalSortFileNames = ['Mpro1_R4_S3_L001', 'Mpro1_R4_S3_L002',
+                        'Mpro1_R4_S3_L003', 'Mpro1_R4_S3_L004']  # Define file name(s)
+inFileType = ''  # Define the type of file that contains your data
+
+# INPUT 2: Fixing residue(s)
+inFixedResidue = 'LQ' # Define what residue you wish to select
+inFirstAAPosition = 3 # Define selected residue position (DO NOT: set = index of fixed AA)
+                      # If: substrate = KIGSTENL, & inFixedResidue = 'S'
+                          # Then: inFirstAAPosition = 4 (4th AA in substrate)
+                      # If: substrate = KIGSTENL, & inFixedResidue = 'GS'
+                          # Then: inFirstAAPosition = 3 (G is 1st fixed AA, & 3rd AA in substrate)
+
+# INPUT 3: Substrate parameters
+inSubstrateLength = 8  # Define the length of the substrate
+
+
+# Input 4: Heatmap parameters
+inEnzymeName = 'Mpro'
+inPlotTitleSize = 18
+inPlotLabelSize = 15
+inPrintResideName = 0 # 0 for full name, 1 for 3-letter code, 2 for 1 letter
+inAAPositions = ['P4', 'P3', 'P2', 'P1', str("P1'"), str("P2'"), str("P3'"), str("P4'")]
+inPrintSelectedSubstrates = 1 # Set = 1, to print substrates with fixed residue
+inPrintNumberOfSubstrates = 10 # Print this many fixed substrates (multiples of 5 + 5)
+inPrintCounts = 1
+inPrintRF = 1
+inEnrichmentColorMap = ['navy', 'royalblue', 'dodgerblue', 'lightskyblue', 'white',
+                        'white', 'lightcoral', 'red', 'firebrick', 'darkred']
+
+
+# ====================================== Setup Residue List ======================================
+# Set up the structure containing the residues in a tuple
+residues = None
+
+
+# ======================================= Define Functions =======================================
+ngs = NGS(substrateLength=inSubstrateLength, xAxisLabels=inAAPositions, AA=residues,
+          residueLabelType=inPrintResideName, titleLabelSize=inPlotTitleSize,
+          axisLabelSize=inPlotLabelSize, printNumber=inPrintNumberOfSubstrates
+          )
+
+
+# Load Data: Initial Sort
+initialCounts, initialTotalSubstrates = ngs.loadCounts(datasetName=inEnzymeName + ' Initial Sort',
+                                                       printLoadedData=inPrintCounts,
+                                                       files=inInitialSortFileNames,
+                                                       filePath=inFilePath
+                                                       )
+
+# Load Data: Final Sort
+finalSubstrates, finalTotalSubstrates = ngs.loadSubstrates(datasetName=inEnzymeName +
+                                                                       ' Final Sort',
+                                                           printLoadedData=inPrintCounts,
+                                                           files=inFinalSortFileNames,
+                                                           filePath=inFilePath,
+                                                           printNumber=inPrintNumberOfSubstrates
+                                                           )
+
+
+# Fix AA in substrate
+fixedSubstrates, fixedTotalSubstrates = ngs.fixResidue(substrates=finalSubstrates,
+                                                       fixedAA=inFixedResidue,
+                                                       fixedPosition=inFirstAAPosition
+                                                       )
+
+
+# Count fixed substrates
+fixedCounts = ngs.countResidues(substrates=fixedSubstrates, totalSubs=fixedTotalSubstrates,
+                                printCounts=inPrintCounts, datasetName='Fixed Substrates')
+
+
+# Calculate RF
+initialRF = ngs.calculateRF(datasetName='Initial Sort', counts=initialCounts,
+                            numberOfSubs=initialTotalSubstrates, printRF=inPrintRF)
+finalRF = ngs.calculateRF(datasetName='Final Sort', counts=fixedCounts,
+                          numberOfSubs=fixedTotalSubstrates, printRF=inPrintRF)
+
+
+# Calculate enrichment scores
+enrichmentScores = ngs.calculateEnrichment(initialSort=initialRF, finalSort=finalRF)
+ngs.plotEnrichmentScores(fileName=inEnzymeName, scores=enrichmentScores,
+                         colors=inEnrichmentColorMap)
