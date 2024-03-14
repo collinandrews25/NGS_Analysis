@@ -475,9 +475,10 @@ class NGS:
     def calculateEnrichment(self, initialSortRF, finalSortRF):
         print('============================ Calculate: Enrichment Score '
               '============================')
-        enrichmentColumns = finalSortRF.columns
+
+        initialSortRF.columns = finalSortRF.columns
         enrichment = np.log2(finalSortRF / initialSortRF)
-        enrichment.columns = enrichmentColumns
+        enrichment.columns = finalSortRF.columns
         print(f'Enrichment Score:\n{enrichment.round(3)}\n\n')
 
         return enrichment
@@ -491,7 +492,7 @@ class NGS:
         return cMapCustom
 
 
-    def plotEnrichmentScores(self, scores, fileName):
+    def plotEnrichmentScores(self, scores, fileName, showValues):
         # Create heatmap
         cMapCustom = NGS.createCustomColorMap(self.colorScheme)
 
@@ -518,9 +519,15 @@ class NGS:
         # Plot the heatmap with numbers centered inside the squares
         fig, ax = plt.subplots(figsize=(figWidth, 8))
         plt.subplots_adjust(top=0.94, bottom=0.075, left=0.12, right=0.998)
-        heatmap = sns.heatmap(scores, annot=True, fmt='.3f', cmap=cMapCustom, cbar=True,
-                              linewidths=0.5, linecolor='black', square=False, center=None,
-                              vmax=cBarMax, vmin=cBarMin)
+        if showValues:
+            heatmap = sns.heatmap(scores, annot=True, fmt='.3f', cmap=cMapCustom, cbar=True,
+                                  linewidths=0.5, linecolor='black', square=False, center=None,
+                                  vmax=cBarMax, vmin=cBarMin,
+                                  annot_kws={'fontweight': 'bold'})
+        else:
+            heatmap = sns.heatmap(scores, annot=False, cmap=cMapCustom, cbar=True, linewidths=0.5,
+                                  linecolor='black', square=False, center=None, vmax=cBarMax,
+                                  vmin=cBarMin)
         ax.set_xlabel('Substrate Position', fontsize=self.axisLabelSize)
         ax.set_ylabel('Residue', fontsize=self.axisLabelSize)
         ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
