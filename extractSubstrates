@@ -5,7 +5,7 @@
     # Forward Read: denoted by "R1"
     # Reverse Read: denoted by "R2"
 
-
+x = 4
 import pickle as pic
 from functions import NGS
 
