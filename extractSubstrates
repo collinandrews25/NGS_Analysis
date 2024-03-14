@@ -13,11 +13,11 @@ from functions import NGS
 
 # ========================================= User Inputs =========================================
 # Input 1: File Location Information
-inFilePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro\fasta'  # Define file pathway
+inFilePath = r''  # Define file pathway
 inFileName = ['Mpro1_R4_S3_L004_R2_001'] # Define file name(s) 'Mpro1_R4_S3_L004_R1_001',
 inFileType = 'fasta' # Define the type of file that contains your data
+inSavePath = r''
 inSaveFileName = 'Mpro1_R4_S3_L004'
-inSavePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro\ExtractedData'
 
 # Input 2: Substrate Parameters
 inEnzymeName = 'Mpro'
