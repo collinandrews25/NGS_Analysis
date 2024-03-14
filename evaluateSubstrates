@@ -1,0 +1,278 @@
+# PURPOSE: This code will load in your extracted substrates for processing
+
+
+
+import os
+import sys
+import pickle as pic
+from functions import NGS
+
+
+
+# ========================================= User Inputs =========================================
+# INPUT 1: File Location Information
+inFilePath = r''  # Define file pathway
+inInitialSortFileNames = ['Mpro1_I_S1_L001', 'Mpro1_I_S1_L002',
+                         'Mpro1_I_S1_L003', 'Mpro1_I_S1_L004']  # Define file name(s)
+inFinalSortFileNames = ['Mpro1_R4_S3_L001', 'Mpro1_R4_S3_L002',
+                        'Mpro1_R4_S3_L003', 'Mpro1_R4_S3_L004']  # Define file name(s)
+inFileType = ''  # Define the type of file that contains your data
+inSavePath = r''
+
+
+# INPUT 2: Experimental Parameters
+inEnzymeName = 'Mpro'
+inSubstrateLength = 8  # Define the length of the substrate
+
+
+# INPUT 3: Computational Parameters
+inFixResidues = True # True: fix residues in the substrate, False: plot raw NGS data
+inFixedResidue = ['Q', 'L'] # Define what residue(s) you wish to select as a list of strings
+inFixedPosition = [4, 3] # Define selected residue position(s)
+inFigureTitleSize = 18
+inFigureLabelSize = 15
+
+
+# INPUT 4: Processing The Data
+inPrintCounts = True
+inPrintRF = True
+inPrintProb = True
+inCodonSequence = 'NNS' # Base probabilities of degenerate codons (can be N, S, or K)
+inUseCodonProb = False # If True: use "inCodonSequence" for baseline probabilities
+                      # If False: use "inInitialSortFileNames" for baseline probabilities
+
+
+# INPUT 5: Plot Heatmap
+inPlotEnrichmentMap = True
+inEnrichmentMapYLabel = 2 # 0 for full Residue name, 1 for 3-letter code, 2 for 1 letter
+inAAPositions = ['P4', 'P3', 'P2', 'P1', str("P1'"), str("P2'"), str("P3'"), str("P4'")]
+inPrintSelectedSubstrates = 1 # Set = 1, to print substrates with fixed residue
+inPrintSubstrateNumber = 10 # Print this many fixed substrates
+inEnrichmentColorMap = ['navy', 'royalblue', 'dodgerblue', 'lightskyblue', 'white', 'white',
+                        'lightcoral', 'red', 'firebrick', 'darkred']
+
+
+#  INPUT 6: Plot Sequence Motif
+inPlotWeblogoMotif = True
+inPlotNegativeWeblogoMotif = True
+inPlotLogRatioMotif = True
+inYAxisLabel = 'Scaled Enrichment' # 'Bits' # 'Scaled ΔRF' #
+inFigureSize = (10, 8) # (width, height)
+inPlotBigLettersOnTop = False
+inLetterColors = ['darkgreen', 'firebrick', 'deepskyblue', 'pink', 'navy', 'black', 'gold']
+                  # Aliphatic, Acidic,  Basic, Hydroxyl, Amide, Aromatic, Sulfur
+
+
+# ====================================== Setup Residue List ======================================
+# Set up the structure containing the residues in a tuple
+residues = None
+
+
+# ======================================= Initialize Class =======================================
+if inFixResidues:
+    ngs = NGS(enzymeName=inEnzymeName, substrateLength=inSubstrateLength, colors=inLetterColors,
+              xAxisLabels=inAAPositions, residueLabelType=0, titleLabelSize=inFigureTitleSize,
+              axisLabelSize=inFigureLabelSize, AA=residues, printNumber=inPrintSubstrateNumber)
+else:
+    ngs = NGS(enzymeName=inEnzymeName, substrateLength=inSubstrateLength,
+              colors=inEnrichmentColorMap, xAxisLabels=inAAPositions,
+              residueLabelType=inEnrichmentMapYLabel, titleLabelSize=inFigureTitleSize,
+              axisLabelSize=inFigureLabelSize, AA=residues, printNumber=None)
+
+
+# ========================================= Run The Code =========================================
+# Load the data: initial sort
+filePaths = []
+if '/' in inFilePath:
+    for fileName in inInitialSortFileNames:
+        filePaths.append(f'{inFilePath}/counts_{fileName}')
+else:
+    for fileName in inInitialSortFileNames:
+        filePaths.append(f'{inFilePath}\\counts_{fileName}')
+
+# Verify that all files exist
+fileFound = True
+indexMissingFile = []
+for indexFile, path in enumerate(filePaths):
+    if os.path.exists(path):
+        continue
+    else:
+        fileFound = False
+        indexMissingFile.append(indexFile)
+
+if fileFound:
+    initialCounts, totalInitialSubs = ngs.loadCounts(filePath=filePaths,
+                                                     files=inInitialSortFileNames,
+                                                     printLoadedData=inPrintCounts,
+                                                     fileType='Initial Sort')
+    # Calculate RF
+    initialRF = ngs.calculateRF(counts=initialCounts, N=totalInitialSubs,
+                                printRF=inPrintRF, datasetName='Initial Sort')
+else:
+    print('\033[91mERROR: File not found at path:')
+    for indexMissing in indexMissingFile:
+        print(filePaths[indexMissing])
+    print(f'\nMake sure your path is correctly named, and that you have already extracted and '
+          f'counted your NGS data\n\n')
+    sys.exit()
+
+
+if inFixResidues:
+    # Load the data: final sort
+    fixResidueList = []
+    for index in range(len(inFixedResidue)):
+        fixResidueList.append(f'{inFixedResidue[index]}@R{inFixedPosition[index]}')
+    fixResidueList = sorted(fixResidueList, key=lambda x: int(x.split('@R')[-1]))
+    fixResiduePos = ', '.join(fixResidueList)
+    print('============================= Fix Residues: Final Sort ==============================')
+    print(f'Fix the residues:\n     {fixResiduePos}\n')
+
+    fixedSubSeq = '_'.join(sorted(
+        [f'{inFixedResidue[index]}@R{inFixedPosition[index]}' for index in
+         range(len(inFixedResidue))], key=lambda x: int(x.split('@R')[-1])))
+
+    if '/' in inFilePath:
+        filePath = f'{inFilePath}/counts_{inEnzymeName}_FinalSort_Fixed_{fixedSubSeq}'
+    else:
+        filePath = f'{inFilePath}\\counts_{inEnzymeName}_FinalSort_Fixed_{fixedSubSeq}'
+
+    # Verify that all files exist
+    if os.path.exists(filePath):
+        print(f'File found at path:\n     {filePath}\n\n')
+        # File exists, so you can proceed to load it
+        with open(filePath, 'rb') as file:
+            fixedCounts = pic.load(file)
+            print(f'Fixed Counts:\n{fixedCounts}\n')
+
+        totalFixedSubs = sum(fixedCounts.loc[:, fixedCounts.columns[0]])
+        print(f'Total Substrates in Final Sort with {fixedSubSeq}: {totalFixedSubs:,}\n\n')
+
+    else:
+        print(f'File not found:\n     {filePath}'
+              f'\n\nWe will load the substrate lists and fix the residue(s): {fixedSubSeq}\n\n')
+
+        # Load Data: Final Sort
+        finalSubstrates, totalFinalSubs = ngs.loadSubstrates(datasetName=inEnzymeName +
+                                                                         ' Final Sort',
+                                                             filePath=inFilePath,
+                                                             fileNames=inFinalSortFileNames,
+                                                             printLoadedData=inPrintCounts,
+                                                             printNumber=inPrintSubstrateNumber)
+
+        # Fix AA in substrate
+        fixedSubstrates, totalFixedSubs = ngs.fixResidue(substrates=finalSubstrates,
+                                                         fixedAA=fixResidueList,
+                                                         printNumber=inPrintSubstrateNumber)
+
+        # Save the fixed substrate list
+        saveFileName = f'FixedSubs_{inEnzymeName}_FinalSort_Fixed_{fixedSubSeq}'
+        if '/' in inFilePath:
+            savePath = inSavePath + '/' + saveFileName
+        else:
+            savePath = inSavePath + '\\' + saveFileName
+        with open(savePath, 'wb') as file:
+            pic.dump(fixedSubstrates, file)
+        print(f'Fixed substrates saved at:\n     {savePath}\n\n')
+
+        # Count fixed substrates
+        fixedCounts, totalFixedSubs = ngs.countResidues(substrates=fixedSubstrates,
+                                                        printCounts=inPrintCounts)
+
+        # Save the counted substrate data
+        saveFileName = f'counts_{inEnzymeName}_FinalSort_Fixed_{fixedSubSeq}'
+        if '/' in inFilePath:
+            savePath = inSavePath + '/' + saveFileName
+        else:
+            savePath = inSavePath + '\\' + saveFileName
+        with open(savePath, 'wb') as file:
+            pic.dump(fixedCounts, file)
+
+        # Print your save location
+        print(f'Counted fixed substrate data saved at:\n     {savePath}\n\n')
+
+
+    # Plot the data
+    if inPlotWeblogoMotif:
+        heights, fixedAA, yMax, yMin = ngs.heightsRF(counts=fixedCounts, N=totalFixedSubs,
+                                                     invertRF=False)
+        # Plot sequence motif
+        ngs.plotMotif(data=heights, fixedPosition=fixedAA, bigLettersOnTop=inPlotBigLettersOnTop,
+                      yAxisLabel='Bits', figureSize=inFigureSize, titleSize=inFigureTitleSize,
+                      labelSize=inFigureLabelSize, yMax=yMax, yMin=yMin)
+
+    if inPlotNegativeWeblogoMotif:
+        heights, fixedAA, yMax, yMin = ngs.heightsRF(counts=fixedCounts, N=totalFixedSubs,
+                                                     invertRF=True)
+        # Plot sequence motif
+        ngs.plotMotif(data=heights, fixedPosition=fixedAA, bigLettersOnTop=inPlotBigLettersOnTop,
+                      yAxisLabel='Bits', figureSize=inFigureSize, titleSize=inFigureTitleSize,
+                      labelSize=inFigureLabelSize, yMax=yMax, yMin=yMin)
+
+    if inPlotLogRatioMotif:
+        # Determine baseline probabilities
+        if inUseCodonProb:
+            pType = f'{inCodonSequence} Codon'
+            codonProbs = ngs.probabilityAA(codonSeq=inCodonSequence, printProbability=inPrintProb)
+
+            heights, fixedAA, yMax, yMin = ngs.heightsRFRatio(counts=fixedCounts,
+                                                              N=totalFixedSubs,
+                                                              baselineProb=codonProbs,
+                                                              baselineType=pType)
+        else:
+            pType = 'Initial Sort'
+            heights, fixedAA, yMax, yMin = ngs.heightsRFRatio(counts=fixedCounts,
+                                                              N=totalFixedSubs,
+                                                              baselineProb=initialRF,
+                                                              baselineType=pType)
+        # Plot sequence motif
+        ngs.heightsRFRatio(data=heights, fixedPosition=fixedAA, bigLettersOnTop=inPlotBigLettersOnTop,
+                  yAxisLabel=inYAxisLabel, figureSize=inFigureSize, titleSize=inFigureTitleSize,
+                  labelSize=inFigureLabelSize, yMax=yMax, yMin=yMin)
+
+    if inPlotEnrichmentMap:
+        ngs = NGS(enzymeName=inEnzymeName, substrateLength=inSubstrateLength,
+                  colors=inEnrichmentColorMap, xAxisLabels=inAAPositions,
+                  residueLabelType=inEnrichmentMapYLabel, titleLabelSize=inFigureTitleSize,
+                  axisLabelSize=inFigureLabelSize, AA=residues, printNumber=None)
+
+
+        # Calculate RF
+        finalFixedRF = ngs.calculateRF(counts=fixedCounts, N=totalFixedSubs, printRF=inPrintRF,
+                                       datasetName='Final Sort')
+        # Calculate enrichment scores
+        enrichmentScores = ngs.calculateEnrichment(initialSortRF=initialRF,
+                                                   finalSortRF=finalFixedRF)
+        ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName)
+
+else:
+    # Load the data: final sort
+    filePaths = []
+    if '/' in inFilePath:
+        for fileName in inFinalSortFileNames:
+            filePaths.append(f'{inFilePath}/counts_{fileName}')
+    else:
+        for fileName in inFinalSortFileNames:
+            filePaths.append(f'{inFilePath}\\counts_{fileName}')
+
+    # Verify that all files exist
+    for indexFile, path in enumerate(filePaths):
+        if not os.path.exists(path):
+            print(f'\033[91mERROR: No file was found at\n     {path}')
+            sys.exit()
+
+    # Load in data from final sort
+    finalCounts, totalFinalSubs = ngs.loadCounts(filePath=filePaths,
+                                                 files=inFinalSortFileNames,
+                                                 printLoadedData=inPrintCounts,
+                                                 fileType='Final Sort')
+
+
+    # Calculate RF
+    initialRF = ngs.calculateRF(counts=initialCounts, N=totalInitialSubs, printRF=inPrintRF,
+                                datasetName='Initial Sort')
+    finalRF = ngs.calculateRF(counts=finalCounts, N=totalFinalSubs, printRF=inPrintRF,
+                              datasetName='Final Sort')
+
+    # Calculate enrichment scores
+    enrichmentScores = ngs.calculateEnrichment(initialSortRF=initialRF, finalSortRF=finalRF)
+    ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName)
