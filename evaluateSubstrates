@@ -1,5 +1,7 @@
 # PURPOSE: This code will load in your extracted substrates for processing
 
+# IMPORTANT: Process all of your data with extractSubstrates before using this script
+
 
 
 import os
@@ -11,13 +13,13 @@ from functions import NGS
 
 # ========================================= User Inputs =========================================
 # Input 1: File Location Information
-inFilePath = r''  # Define file pathway
+inFilePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro\ExtractedData'  # Define file pathway
 inInitialSortFileNames = ['Mpro1_I_S1_L001', 'Mpro1_I_S1_L002',
                          'Mpro1_I_S1_L003', 'Mpro1_I_S1_L004']  # Define file name(s)
 inFinalSortFileNames = ['Mpro1_R4_S3_L001', 'Mpro1_R4_S3_L002',
                         'Mpro1_R4_S3_L003', 'Mpro1_R4_S3_L004']  # Define file name(s)
 inFileType = ''  # Define the type of file that contains your data
-inSavePath = r''
+inSavePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro\ExtractedData'
 
 
 # Input 2: Experimental Parameters
@@ -44,6 +46,7 @@ inUseCodonProb = False # If True: use "inCodonSequence" for baseline probabiliti
 
 # Input 5: Plot Heatmap
 inPlotEnrichmentMap = True
+inShowEnrichmentScores = True
 inEnrichmentMapYLabel = 2 # 0 for full Residue name, 1 for 3-letter code, 2 for 1 letter
 inAAPositions = ['P4', 'P3', 'P2', 'P1', str("P1'"), str("P2'"), str("P3'"), str("P4'")]
 inPrintSelectedSubstrates = 1 # Set = 1, to print substrates with fixed residue
@@ -225,9 +228,10 @@ if inFixResidues:
                                                               baselineProb=initialRF,
                                                               baselineType=pType)
         # Plot sequence motif
-        ngs.heightsRFRatio(data=heights, fixedPosition=fixedAA, bigLettersOnTop=inPlotBigLettersOnTop,
-                  yAxisLabel=inYAxisLabel, figureSize=inFigureSize, titleSize=inFigureTitleSize,
-                  labelSize=inFigureLabelSize, yMax=yMax, yMin=yMin)
+        ngs.plotMotif(data=heights, fixedPosition=fixedAA, bigLettersOnTop=inPlotBigLettersOnTop,
+                      yAxisLabel=inYAxisLabel, figureSize=inFigureSize,
+                      titleSize=inFigureTitleSize, labelSize=inFigureLabelSize, yMax=yMax,
+                      yMin=yMin)
 
     if inPlotEnrichmentMap:
         ngs = NGS(enzymeName=inEnzymeName, substrateLength=inSubstrateLength,
@@ -242,7 +246,8 @@ if inFixResidues:
         # Calculate enrichment scores
         enrichmentScores = ngs.calculateEnrichment(initialSortRF=initialRF,
                                                    finalSortRF=finalFixedRF)
-        ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName)
+        ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName,
+                                 showValues=inShowEnrichmentScores)
 
 else:
     # Load the data: final sort
@@ -275,4 +280,5 @@ else:
 
     # Calculate enrichment scores
     enrichmentScores = ngs.calculateEnrichment(initialSortRF=initialRF, finalSortRF=finalRF)
-    ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName)
+    ngs.plotEnrichmentScores(scores=enrichmentScores, fileName=inEnzymeName,
+                             showValues=inShowEnrichmentScores)
