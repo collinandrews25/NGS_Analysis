@@ -37,8 +37,7 @@ inPrintCounts = True
 inPlotCounts = True
 inCountMapYLabel = 0  # 0 for full Residue name, 1 for 3-letter code, 2 for 1 letter
 inAAPositions = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6',  'R7', 'R8']
-inCountsColorMap = ['white', 'white', 'lightcoral', 'red', 'red', 'firebrick', 'firebrick',
-                    'darkred']
+inCountsColorMap = ['white', 'white', '#F79620', '#F79620', '#F79620', '#BF5700', '#BF5700']
 
 
 # ====================================== Setup Residue List ======================================
