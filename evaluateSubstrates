@@ -13,13 +13,13 @@ from functions import NGS
 
 # ========================================= User Inputs =========================================
 # Input 1: File Location Information
-inFilePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro2\ExtractedData'  # Define file pathway
+inFilePath = r''  # Define file pathway
 inInitialSortFileNames = ['Mpro2-I_S1_L001', 'Mpro2-I_S1_L002',
                          'Mpro2-I_S1_L003', 'Mpro2-I_S1_L004']  # Define file name(s)
 inFinalSortFileNames = ['Mpro2-R4_S3_L001', 'Mpro2-R4_S3_L002',
                         'Mpro2-R4_S3_L003', 'Mpro2-R4_S3_L004']  # Define file name(s)
 inFileType = ''  # Define the type of file that contains your data
-inSavePath = r'C:\Users\ca34522\Documents\Research\NGS\Mpro2\ExtractedData'
+inSavePath = r''
 
 
 # Input 2: Experimental Parameters
@@ -28,7 +28,7 @@ inSubstrateLength = 8  # Define the length of the substrate
 
 
 # Input 3: Computational Parameters
-inFixResidues = True # True: fix residues in the substrate, False: plot raw NGS data
+inFixResidues = False # True: fix residues in the substrate, False: plot raw NGS data
 inFixedResidue = ['L', 'Q'] # Define what residue(s) you wish to select as a list of strings
 inFixedPosition = [3, 4] # Define position(s) in the substrate to fix
 inAAPositions = ['P4', 'P3', 'P2', 'P1', str("P1'"), str("P2'"), str("P3'"), str("P4'")]
