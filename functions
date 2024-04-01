@@ -303,23 +303,20 @@ class NGS:
         totalSubs = len(substrates)
 
         # Initialize the counts matrix
-        countedData = np.zeros((len(self.residues), int(self.substrateLength)), dtype=int)
+        countedData = pd.DataFrame(0, index=self.letters, columns=self.xAxisLabels, dtype=int)
+        # print(f'Empty Count Matrix:\n{countedData}\n\n')
 
         # Count the occurrences of each residue
         for sub in substrates:
             for indexAA in range(self.substrateLength):
                 if sub[indexAA] in self.letters:
                     indexResidue = self.letters.index(sub[indexAA])
-                    countedData[indexResidue][indexAA] += 1
+                    countedData.iloc[indexResidue, indexAA] += 1
                 else:
                     print(f'Outlying Substrate: {sub}\n'
                           f'     Residue: {sub[indexAA]}, Position: {indexAA}'
                           f'     self.residue: {self.letters[indexResidue]}, '
                           f'{self.letters.index(sub[indexAA])}\n')
-
-
-        countedData = pd.DataFrame(countedData, index=self.letters,
-                                   columns=self.xAxisLabels)
 
         if printCounts:
             print(f'Counted data: {self.enzymeName}')
@@ -585,14 +582,12 @@ class NGS:
         # Select substrates that contain selected AA at a specified position in the substrate
         if len(fixedAA) == 1:
             print(f'Fix Residue in {sortType}: {fixedString}\n')
-
             for sub in substrates:
                 if sub[fixedPosition[0] - 1] == fixedAA[0]:
                     fixedSubs.append(sub)
                     fixedSubsTotal += 1
         else:
             print(f'Fix Residues in {sortType}: {fixedString}\n')
-
             for sub in substrates:
                 saveSeq = True
                 for index in range(len(fixedAA)):
@@ -605,7 +600,6 @@ class NGS:
         # Print fixed substrates
         print('Fixed Substrates:')
         fixedSubsTotal = len(fixedSubs)
-        print(f'Print: {printNumber}, len(fixed subs): {fixedSubsTotal}')
         if fixedSubsTotal != 0:
             if fixedSubsTotal >= printNumber:
                 for index in range(printNumber):
@@ -613,7 +607,6 @@ class NGS:
             else:
                 for index in range(fixedSubsTotal):
                     print(f'     {fixedSubs[index]}')
-
         else:
             print('')
             print(f'\033[91mERROR: No substrates in {sortType} contained: {fixedString}\n')
@@ -1039,4 +1032,3 @@ class NGS:
                                  facecolor='darkgrey', alpha=0.2)
 
         plt.show()
-
